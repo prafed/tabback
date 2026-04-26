@@ -1,0 +1,316 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0e0e10;
+  --bg-2: #1a1a1e;
+  --bg-3: #242428;
+  --border: #2e2e34;
+  --text: #e8e8ec;
+  --text-2: #8888a0;
+  --text-3: #55555f;
+  --accent: #5b8eff;
+  --accent-dim: rgba(91, 142, 255, 0.12);
+  --current: #3ddc84;
+  --current-dim: rgba(61, 220, 132, 0.1);
+  --danger: #ff6b6b;
+}
+
+html, body {
+  width: 320px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+}
+
+/* ─── Header ─────────────────────────────────────────────────────────────── */
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+
+.settings-btn {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.settings-btn:hover {
+  color: var(--text);
+  background: var(--bg-3);
+}
+
+.settings-btn.active {
+  color: var(--accent);
+}
+
+/* ─── Views ──────────────────────────────────────────────────────────────── */
+
+.view {
+  padding: 10px 0;
+}
+
+.view.hidden {
+  display: none;
+}
+
+.section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+  padding: 0 14px 6px;
+}
+
+/* ─── History List ───────────────────────────────────────────────────────── */
+
+.history-list {
+  max-height: 320px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.history-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.history-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.history-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.loading {
+  padding: 20px 14px;
+  color: var(--text-3);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+
+.empty-state {
+  padding: 24px 14px;
+  color: var(--text-3);
+  text-align: center;
+  font-size: 12px;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  cursor: default;
+  transition: background 0.1s;
+  position: relative;
+}
+
+.history-item:hover {
+  background: var(--bg-2);
+}
+
+.history-item.is-current {
+  background: var(--current-dim);
+}
+
+.history-item.is-current::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--current);
+}
+
+.item-index {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text-3);
+  min-width: 18px;
+  text-align: right;
+}
+
+.item-favicon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 2px;
+}
+
+.item-favicon-placeholder {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  background: var(--bg-3);
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.item-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.history-item.is-current .item-title {
+  color: var(--text);
+}
+
+.current-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--current);
+  background: var(--current-dim);
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+/* ─── Nav Hints ──────────────────────────────────────────────────────────── */
+
+.nav-hints {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px 2px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+.hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+kbd {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: var(--text-2);
+}
+
+/* ─── Settings ───────────────────────────────────────────────────────────── */
+
+.settings-info {
+  padding: 6px 14px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-info p {
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+
+.open-shortcuts-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.open-shortcuts-btn:hover {
+  background: rgba(91, 142, 255, 0.2);
+}
+
+.bindings {
+  padding: 6px 14px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.binding-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.binding-label {
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.about {
+  padding: 8px 14px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.about p {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.about a {
+  color: var(--accent);
+  font-size: 11px;
+  text-decoration: none;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.about a:hover {
+  text-decoration: underline;
+}

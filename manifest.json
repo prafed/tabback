@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "TabBack",
+  "version": "1.0.0",
+  "description": "Navigate backwards and forwards through your tab history with keyboard shortcuts.",
+  "permissions": [
+    "tabs",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "commands": {
+    "navigate-back": {
+      "suggested_key": {
+        "default": "Alt+A"
+      },
+      "description": "Navigate to previous tab in history"
+    },
+    "navigate-forward": {
+      "suggested_key": {
+        "default": "Alt+S"
+      },
+      "description": "Navigate to next tab in history"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
