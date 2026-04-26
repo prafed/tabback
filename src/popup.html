@@ -1,79 +1,86 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TabBack</title>
-  <link rel="stylesheet" href="popup.css">
-</head>
-<body>
-  <div class="app">
-    <header>
-      <div class="logo">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M3 10 L9 4 L9 7 L17 7 L17 13 L9 13 L9 16 Z" fill="currentColor"/>
-        </svg>
-        <span>TabBack</span>
-      </div>
-      <button class="settings-btn" id="settingsBtn" title="Settings">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-      </button>
-    </header>
-
-    <!-- History View -->
-    <div class="view" id="historyView">
-      <div class="section-label">TAB HISTORY <span id="historyCount"></span></div>
-      <div class="history-list" id="historyList">
-        <div class="loading">Loading...</div>
-      </div>
-      <div class="nav-hints">
-        <div class="hint" id="backHint">
-          <kbd id="backKey">Alt+A</kbd>
-          <span>Back</span>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TabBack</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <div class="logo">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 10 L9 4 L9 7 L17 7 L17 13 L9 13 L9 16 Z" fill="currentColor" />
+          </svg>
+          <span>TabBack</span>
         </div>
-        <div class="hint" id="fwdHint">
-          <kbd id="fwdKey">Alt+S</kbd>
-          <span>Forward</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Settings View -->
-    <div class="view hidden" id="settingsView">
-      <div class="section-label">KEYBOARD SHORTCUTS</div>
-      <div class="settings-info">
-        <p>Chrome manages extension shortcuts natively. Click below to open the shortcuts page and customise your keys.</p>
-        <button class="open-shortcuts-btn" id="openShortcutsBtn">
-          Open Chrome Shortcuts
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M2 10L10 2M10 2H5M10 2V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <button class="settings-btn" id="settingsBtn" title="Settings">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.5" />
+            <path
+              d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
           </svg>
         </button>
+      </header>
+
+      <!-- History View -->
+      <div class="view" id="historyView">
+        <div class="section-label">TAB HISTORY <span id="historyCount"></span></div>
+        <div class="history-list" id="historyList">
+          <div class="loading">Loading...</div>
+        </div>
+        <div class="nav-hints">
+          <div class="hint" id="backHint">
+            <kbd id="backKey">Alt+A</kbd>
+            <span>Back</span>
+          </div>
+          <div class="hint" id="fwdHint">
+            <kbd id="fwdKey">Alt+S</kbd>
+            <span>Forward</span>
+          </div>
+        </div>
       </div>
 
-      <div class="section-label" style="margin-top: 16px;">CURRENT BINDINGS</div>
-      <div class="bindings">
-        <div class="binding-row">
-          <span class="binding-label">Navigate Back</span>
-          <kbd id="currentBackKey">—</kbd>
+      <!-- Settings View -->
+      <div class="view hidden" id="settingsView">
+        <div class="section-label">KEYBOARD SHORTCUTS</div>
+        <div class="settings-info">
+          <p>
+            Chrome manages extension shortcuts natively. Click below to open the shortcuts page and customise your keys.
+          </p>
+          <button class="open-shortcuts-btn" id="openShortcutsBtn">
+            Open Chrome Shortcuts
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2 10L10 2M10 2H5M10 2V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+          </button>
         </div>
-        <div class="binding-row">
-          <span class="binding-label">Navigate Forward</span>
-          <kbd id="currentFwdKey">—</kbd>
-        </div>
-      </div>
 
-      <div class="section-label" style="margin-top: 16px;">ABOUT</div>
-      <div class="about">
-        <p>TabBack v1.0.0</p>
-        <p>Tracks up to 50 tab visits per window.</p>
-        <a href="https://github.com/yourusername/tabback" target="_blank" id="githubLink">View on GitHub ↗</a>
+        <div class="section-label" style="margin-top: 16px">CURRENT BINDINGS</div>
+        <div class="bindings">
+          <div class="binding-row">
+            <span class="binding-label">Navigate Back</span>
+            <kbd id="currentBackKey">—</kbd>
+          </div>
+          <div class="binding-row">
+            <span class="binding-label">Navigate Forward</span>
+            <kbd id="currentFwdKey">—</kbd>
+          </div>
+        </div>
+
+        <div class="section-label" style="margin-top: 16px">ABOUT</div>
+        <div class="about">
+          <p>TabBack v1.0.0</p>
+          <p>Tracks up to 50 tab visits per window.</p>
+          <a href="https://github.com/prafed/tabback" target="_blank" id="githubLink">View on GitHub ↗</a>
+        </div>
       </div>
     </div>
-  </div>
-  <script src="popup.js"></script>
-</body>
+    <script src="popup.js"></script>
+  </body>
 </html>
