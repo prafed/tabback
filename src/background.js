@@ -1,220 +1,158 @@
 /**
- * TabBack - Background Service Worker
- *
- * State shape (per window, stored in memory):
- * {
- *   [windowId]: {
- *     history: [tabId, tabId, ...],  // max 50 entries
- *     pointer: number                 // index into history
- *   }
- * }
- *
- * Rules:
- * - Manual tab activation: truncate forward history, append, cap at 50
- * - Hotkey back/forward: move pointer only, no history mutation
- * - Tab closed: remove all occurrences, adjust pointer
- * - Window closed: delete window state
- * - Hotkey-driven activations must NOT trigger history recording
+ * TabBack - Optimized Background Service Worker (MV3)
+ * Fixes: Race conditions, Orphaned Window Leaks, and IPC Flooding.
  */
 
 const MAX_HISTORY = 50;
+let pendingActivations = new Set(); // Tracks tabs activated by hotkeys
 
-// In-memory state. Service workers can be killed; we persist to session storage.
-let windowHistories = {};
-let isHotkeyNavigation = false;
+// ─── Atomic State Management ──────────────────────────────────────────────────
 
-// ─── Persistence ─────────────────────────────────────────────────────────────
-
-async function loadState() {
-  const result = await chrome.storage.session.get('windowHistories');
-  windowHistories = result.windowHistories || {};
-}
-
-async function saveState() {
-  await chrome.storage.session.set({ windowHistories });
-}
-
-// ─── State Helpers ────────────────────────────────────────────────────────────
-
-function getWindowState(windowId) {
-  if (!windowHistories[windowId]) {
-    windowHistories[windowId] = { history: [], pointer: -1 };
+async function updateState(windowId, updateFn) {
+  const data = await chrome.storage.session.get('windowHistories');
+  const histories = data.windowHistories || {};
+  
+  if (!histories[windowId]) {
+    histories[windowId] = { history: [], pointer: -1 };
   }
-  return windowHistories[windowId];
+
+  // Execute the logic passed into the helper
+  updateFn(histories[windowId]);
+
+  await chrome.storage.session.set({ windowHistories: histories });
+  return histories[windowId];
 }
 
-function deleteWindowState(windowId) {
-  delete windowHistories[windowId];
+// ─── Cleanup Logic (The "Garbage Collector") ──────────────────────────────────
+
+async function cleanupOrphanedWindows() {
+  const [windows, data] = await Promise.all([
+    chrome.windows.getAll(),
+    chrome.storage.session.get('windowHistories')
+  ]);
+  
+  const activeIds = new Set(windows.map(w => w.id));
+  const histories = data.windowHistories || {};
+  let changed = false;
+
+  for (const id in histories) {
+    if (!activeIds.has(parseInt(id))) {
+      delete histories[id];
+      changed = true;
+    }
+  }
+
+  if (changed) await chrome.storage.session.set({ windowHistories: histories });
 }
 
 // ─── Core Logic ───────────────────────────────────────────────────────────────
 
-function recordTabVisit(windowId, tabId) {
-  const state = getWindowState(windowId);
+async function recordTabVisit(windowId, tabId) {
+  await updateState(windowId, (state) => {
+    state.history = state.history.slice(0, state.pointer + 1);
+    if (state.history[state.pointer] === tabId) return;
 
-  // Truncate anything forward of current pointer
-  state.history = state.history.slice(0, state.pointer + 1);
-
-  // Don't record the same tab twice in a row
-  if (state.history[state.pointer] === tabId) {
-    return;
-  }
-
-  state.history.push(tabId);
-
-  // Cap at MAX_HISTORY — drop oldest
-  if (state.history.length > MAX_HISTORY) {
-    state.history.shift();
-  }
-
-  state.pointer = state.history.length - 1;
+    state.history.push(tabId);
+    if (state.history.length > MAX_HISTORY) state.history.shift();
+    state.pointer = state.history.length - 1;
+  });
 }
 
-async function navigateBack(windowId) {
-  const state = getWindowState(windowId);
-  if (state.pointer <= 0) return; // Already at oldest
+async function navigate(windowId, direction) {
+  const data = await chrome.storage.session.get('windowHistories');
+  const state = data.windowHistories?.[windowId];
+  if (!state) return;
 
-  state.pointer--;
-  const targetTabId = state.history[state.pointer];
+  const newPointer = state.pointer + direction;
+  if (newPointer < 0 || newPointer >= state.history.length) return;
 
-  isHotkeyNavigation = true;
+  const targetTabId = state.history[newPointer];
+  
   try {
+    pendingActivations.add(targetTabId); // Mark this tab as "Ignore on next activation"
     await chrome.tabs.update(targetTabId, { active: true });
+    
+    // Update pointer after successful navigation
+    await updateState(windowId, (s) => { s.pointer = newPointer; });
   } catch (e) {
-    // Tab no longer exists — remove it and try again
-    handleClosedTab(windowId, targetTabId);
-    await navigateBack(windowId);
+    // If tab is dead, remove it and try next one
+    await handleClosedTab(windowId, targetTabId);
+    await navigate(windowId, direction);
+  }
+}
+
+async function handleClosedTab(windowId, closedTabId) {
+  await updateState(windowId, (state) => {
+    const oldPointer = state.pointer;
+    const oldHistory = [...state.history];
+    
+    state.history = oldHistory.filter(id => id !== closedTabId);
+    
+    let removedBefore = oldHistory.slice(0, oldPointer + 1).filter(id => id === closedTabId).length;
+    state.pointer = Math.max(0, Math.min(oldPointer - removedBefore, state.history.length - 1));
+    
+    if (state.history.length === 0) state.pointer = -1;
+  });
+}
+
+// ─── Events ───────────────────────────────────────────────────────────────────
+
+chrome.tabs.onActivated.addListener(async (info) => {
+  if (pendingActivations.has(info.tabId)) {
+    pendingActivations.delete(info.tabId);
     return;
-  } finally {
-    // Reset flag after a tick to ensure onActivated fires first
-    setTimeout(() => { isHotkeyNavigation = false; }, 50);
   }
-
-  await saveState();
-}
-
-async function navigateForward(windowId) {
-  const state = getWindowState(windowId);
-  if (state.pointer >= state.history.length - 1) return; // Already at newest
-
-  state.pointer++;
-  const targetTabId = state.history[state.pointer];
-
-  isHotkeyNavigation = true;
-  try {
-    await chrome.tabs.update(targetTabId, { active: true });
-  } catch (e) {
-    handleClosedTab(windowId, targetTabId);
-    await navigateForward(windowId);
-    return;
-  } finally {
-    setTimeout(() => { isHotkeyNavigation = false; }, 50);
-  }
-
-  await saveState();
-}
-
-function handleClosedTab(windowId, closedTabId) {
-  const state = getWindowState(windowId);
-  const oldPointer = state.pointer;
-  const oldHistory = state.history;
-
-  // Remove all occurrences of the closed tab
-  state.history = oldHistory.filter(id => id !== closedTabId);
-
-  // Recalculate pointer proportionally
-  // Count how many removed entries were at or before the old pointer
-  let removedBeforeOrAt = 0;
-  for (let i = 0; i <= oldPointer && i < oldHistory.length; i++) {
-    if (oldHistory[i] === closedTabId) removedBeforeOrAt++;
-  }
-
-  state.pointer = Math.max(0, oldPointer - removedBeforeOrAt);
-
-  // If history is now empty, reset
-  if (state.history.length === 0) {
-    state.pointer = -1;
-  } else {
-    state.pointer = Math.min(state.pointer, state.history.length - 1);
-  }
-}
-
-// ─── Event Listeners ──────────────────────────────────────────────────────────
-
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-  await loadState(); // Refresh in case service worker was restarted
-
-  if (isHotkeyNavigation) return; // Ignore hotkey-driven activations
-
-  recordTabVisit(activeInfo.windowId, activeInfo.tabId);
-  await saveState();
+  await recordTabVisit(info.windowId, info.tabId);
 });
 
-chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
-  await loadState();
-
-  if (removeInfo.isWindowClosing) {
-    deleteWindowState(removeInfo.windowId);
-  } else {
-    handleClosedTab(removeInfo.windowId, tabId);
-  }
-
-  await saveState();
+chrome.tabs.onRemoved.addListener(async (tabId, info) => {
+  if (info.isWindowClosing) return; 
+  await handleClosedTab(info.windowId, tabId);
 });
 
 chrome.windows.onRemoved.addListener(async (windowId) => {
-  await loadState();
-  deleteWindowState(windowId);
-  await saveState();
+  const data = await chrome.storage.session.get('windowHistories');
+  if (data.windowHistories) {
+    delete data.windowHistories[windowId];
+    await chrome.storage.session.set({ windowHistories: data.windowHistories });
+  }
 });
 
 chrome.commands.onCommand.addListener(async (command) => {
-  await loadState();
-
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab) return;
 
-  if (command === 'navigate-back') {
-    await navigateBack(tab.windowId);
-  } else if (command === 'navigate-forward') {
-    await navigateForward(tab.windowId);
-  }
+  if (command === 'navigate-back') await navigate(tab.windowId, -1);
+  if (command === 'navigate-forward') await navigate(tab.windowId, 1);
 });
 
-// ─── Message Handler (for popup) ──────────────────────────────────────────────
+// ─── Messaging (The "Data Aggregator") ────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'GET_STATE') {
-    loadState().then(async () => {
+    (async () => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab) {
-        sendResponse({ history: [], pointer: -1 });
-        return;
-      }
-      const state = getWindowState(tab.windowId);
+      if (!tab) return sendResponse({ history: [], pointer: -1 });
 
-      // Resolve tab IDs to tab objects for display
-      const tabIds = [...new Set(state.history)];
-      const tabInfoMap = {};
-      await Promise.all(tabIds.map(async (id) => {
+      const data = await chrome.storage.session.get('windowHistories');
+      const state = data.windowHistories?.[tab.windowId] || { history: [], pointer: -1 };
+
+      // Batch info gathering here to prevent Popup-to-Chrome overhead
+      const fullHistory = await Promise.all(state.history.map(async (id) => {
         try {
           const t = await chrome.tabs.get(id);
-          tabInfoMap[id] = { title: t.title, favIconUrl: t.favIconUrl, id: t.id };
+          return { id: t.id, title: t.title, favIconUrl: t.favIconUrl };
         } catch {
-          tabInfoMap[id] = { title: '(closed)', favIconUrl: null, id };
+          return { id, title: '(Closed Tab)', favIconUrl: null };
         }
       }));
 
-      sendResponse({
-        history: state.history.map(id => tabInfoMap[id] || { title: '(unknown)', id }),
-        pointer: state.pointer,
-        currentTabId: tab.id
-      });
-    });
-    return true; // Keep message channel open for async response
+      sendResponse({ history: fullHistory, pointer: state.pointer });
+    })();
+    return true;
   }
 });
 
-// Initialise on install/startup
-chrome.runtime.onInstalled.addListener(loadState);
-chrome.runtime.onStartup.addListener(loadState);
+// Initialization & Heartbeat
+chrome.runtime.onInstalled.addListener(cleanupOrphanedWindows);
+chrome.runtime.onStartup.addListener(cleanupOrphanedWindows);
